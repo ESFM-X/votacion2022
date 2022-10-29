@@ -1,0 +1,12 @@
+.env/
+static/
+templates/
+__pycache__/
+
+app.yaml
+aws_credentials.py
+data.py
+key.json
+secret.py
+utils.py
+.gcloudignore
