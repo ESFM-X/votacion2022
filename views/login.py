@@ -10,17 +10,57 @@ from bs4 import BeautifulSoup # Librería para hacer web scraping
 from requests_ip_rotator import ApiGateway # Librería para conectarse a una GateWay de Amazon Web Services
 
 # Paquetes locales
-from secret import headers_login, form_data_login
+from secret import headers_login, form_data_login, headers_image
 from utils import (
     login_required, 
     not_login_required,
-    setLoginCookies,
-    loginRequestData
+    setLoginCookies
 )
 from aws_credentials import key_id, key_secret, api_url
 
+# Paquetes incluidos en Python
+from base64 import b64encode
+
 
 url_base = 'https://www.saes.esfm.ipn.mx'
+
+
+def loginRequestData():
+    """
+    Función para pedir los inputs ocultos iniciales de logueo al SAES.
+
+    No aparece en el primer commit ya que se encontraba en el paquete oculto "utils", pero
+    una vez notificado este error se hace publico en el commit #
+    """
+
+    # Se hace una solicitud al login del SAES
+    session = requests.Session()
+    response = session.get(
+        'https://www.saes.esfm.ipn.mx/default.aspx',
+    )
+    soup = BeautifulSoup(response.text, features="html.parser")
+    inputs = soup.find_all('input')
+    # Se obtienen la imagen del captcha y la id de sesión que se asigna
+    img_captcha = soup.find(attrs={'class': 'LBD_CaptchaImage'})
+    headers_image['Cookie'] = f'ASP.NET_SessionId={session.cookies.get("ASP.NET_SessionId")};'
+    url = url_base + img_captcha.get('src')
+    response = session.get(
+        url,
+        headers=headers_image
+    )
+    session_id = session.cookies.get('ASP.NET_SessionId')
+    
+    # Regresa los inputs necesarios para el logueo del saes, el captcha y el id de la sesión
+    return dict(
+        VIEWSTATE = inputs[0].get('value'),
+        VIEWSTATEGENERATOR = inputs[1].get('value'),
+        EVENTVALIDATION = inputs[2].get('value'),
+        LBD_VCID_c_default_ctl00_leftcolumn_loginuser_logincaptcha = inputs[6].get('value'),
+        LBD_BackWorkaround_c_default_ctl00_leftcolumn_loginuser_logincaptcha = inputs[7].get('value'),
+        session_id = session_id,
+        image=b64encode(response.content).decode("utf-8")
+    )
+
 
 @not_login_required # Decorador para que solo los que no están logueados tengan acceso a esta ruta
 def login():  
